@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch_dct
 import random
 from softdtw import SoftDTW
 import matplotlib.pyplot as plt
@@ -102,7 +103,8 @@ def dtw_loss(originals, deltas, targets, criterion, attentions=None, is_cuda=Fal
 
         dtw_loss_corr.append(crit.item())
         dtw_loss_org.append(crit_org.item())
-        loss += crit + 1e-3 * smoothness_loss      # dtw_loss + smoothness
+        # loss += crit + 1e-3 * smoothness_loss      # dtw_loss + smoothness
+        loss += crit  # without smoothness
         # loss += crit  # without smoothness
 
         if test:
@@ -171,7 +173,7 @@ def train_corr_class(train_loader, model, optimizer, beta, fact=None, is_cuda=Tr
         loss = loss_class + beta * loss_corr
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         # update the training loss
@@ -240,7 +242,7 @@ def train_corr_class_v4(train_loader, model, curriculum_learning_rate, optimizer
         loss = loss_class + beta * loss_corr
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         # update the training loss
@@ -274,7 +276,7 @@ def train_corr(train_loader, model, optimizer, fact=None, is_cuda=False):
             loss = (dtw + l1) / batch_size
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         # update the training loss
@@ -462,7 +464,7 @@ def train_class(train_loader, model, optimizer, is_cuda=False, level=0):
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         # update the training loss
@@ -713,7 +715,6 @@ def dct(x, norm=None):
 
     return V
 
-
 def idct(X, norm=None):
     """
     The inverse to DCT-II, which is a scaled Discrete Cosine Transform, Type III
@@ -754,6 +755,11 @@ def idct(X, norm=None):
 
     return x.view(*x_shape)
 
+# def dct(x, norm=None):
+#     return torch_dct.dct(x, norm=norm)
+
+# def idct(X, norm=None):
+#     return torch_dct.idct(X, norm=norm)
 
 def display_poses(poses_list, save_loc=None, custom_name=None, time=0, custom_title=None, legend_=None, color_list=None):
     fig = plt.figure(figsize=(4,4))

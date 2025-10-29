@@ -25,7 +25,11 @@ class GraphConvolution(nn.Module):
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
-        self.adj.data.uniform_(-stdv, stdv)
+        
+        # Use a more standard Xavier/Glorot init for the adjacency matrix
+        torch.nn.init.xavier_uniform_(self.adj.data) 
+        # self.adj.data.uniform_(-stdv, stdv)
+        
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 
@@ -157,6 +161,8 @@ class GCN_class_simple(nn.Module):
         self.act_f = nn.ReLU()
         self.act_flin = nn.LogSoftmax(dim=1)
 
+        self.apply(self._init_weights_torch_1_4_full)
+
     def forward(self, x):
 
         if len(x.shape) == 3:
@@ -182,6 +188,50 @@ class GCN_class_simple(nn.Module):
         y = self.act_flin(y)
 
         return y
+
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # Use a standard Kaiming (He) initialization
+            torch.nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+    def _init_weights_torch_1_4(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                # Calculate fan_in
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                # Calculate bound and apply uniform init
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+
+    def _init_weights_torch_1_4_full(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+                
+        elif isinstance(module, torch.nn.Conv2d):
+            # This replicates the torch 1.4.0 nn.Conv2d default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                if fan_in != 0:
+                    bound = 1 / math.sqrt(fan_in)
+                    torch.nn.init.uniform_(module.bias, -bound, bound)
+                    
+        elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            # Init weight (gamma) to 1s
+            torch.nn.init.ones_(module.weight)
+            # Init bias (beta) with the same uniform distribution as other biases
+            fan_in = module.num_features
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(module.bias, -bound, bound)
 
 class GCN_class(nn.Module):
     # Separated Classifier
@@ -221,6 +271,8 @@ class GCN_class(nn.Module):
             self.gcbs.append(GC_Block(hidden_feature, p_dropout=p_dropout, node_n=node_n))
 
         self.gcbs = nn.ModuleList(self.gcbs)
+
+        self.apply(self._init_weights_torch_1_4_full)
 
     def forward(self, x):
 
@@ -265,6 +317,50 @@ class GCN_class(nn.Module):
         y = self.act_flin(y)
 
         return y
+    
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # Use a standard Kaiming (He) initialization
+            torch.nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+    def _init_weights_torch_1_4(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                # Calculate fan_in
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                # Calculate bound and apply uniform init
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+
+    def _init_weights_torch_1_4_full(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+                
+        elif isinstance(module, torch.nn.Conv2d):
+            # This replicates the torch 1.4.0 nn.Conv2d default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                if fan_in != 0:
+                    bound = 1 / math.sqrt(fan_in)
+                    torch.nn.init.uniform_(module.bias, -bound, bound)
+                    
+        elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            # Init weight (gamma) to 1s
+            torch.nn.init.ones_(module.weight)
+            # Init bias (beta) with the same uniform distribution as other biases
+            fan_in = module.num_features
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(module.bias, -bound, bound)
 
 class GCN_corr_class(nn.Module):
     # combiend_wo_feedback
@@ -308,6 +404,8 @@ class GCN_corr_class(nn.Module):
         self.conv2d = nn.Conv2d(3, 3, kernel_size=(1, 3), padding=(0, 1), bias=False)
         self.gcont_class_v2 = GraphConvolution(int(hidden_feature/2), input_feature, node_n=node_n)
         self.maxpool = nn.AdaptiveMaxPool2d((57, 25))
+
+        self.apply(self._init_weights_torch_1_4_full)
 
 
     def forward(self, x):
@@ -353,6 +451,49 @@ class GCN_corr_class(nn.Module):
 
         return out, att, y_class
 
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # Use a standard Kaiming (He) initialization
+            torch.nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+    def _init_weights_torch_1_4(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                # Calculate fan_in
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                # Calculate bound and apply uniform init
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+
+    def _init_weights_torch_1_4_full(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+                
+        elif isinstance(module, torch.nn.Conv2d):
+            # This replicates the torch 1.4.0 nn.Conv2d default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                if fan_in != 0:
+                    bound = 1 / math.sqrt(fan_in)
+                    torch.nn.init.uniform_(module.bias, -bound, bound)
+                    
+        elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            # Init weight (gamma) to 1s
+            torch.nn.init.ones_(module.weight)
+            # Init bias (beta) with the same uniform distribution as other biases
+            fan_in = module.num_features
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(module.bias, -bound, bound)
 
 class GCN_corr_class_ours(nn.Module):
     # ours / combined_wo_smoothness
@@ -400,6 +541,7 @@ class GCN_corr_class_ours(nn.Module):
         self.maxpool = nn.AdaptiveMaxPool2d((57, 25))
         # for corrector
         # self.gcout_corr_22S = GraphConvolution(int(hidden_feature/2), input_feature, node_n=node_n)
+        self.apply(self._init_weights_torch_1_4_full)
 
 
     def forward(self, x, labels, Use_label, random_one_hot=False):
@@ -417,7 +559,9 @@ class GCN_corr_class_ours(nn.Module):
         y_shared = self.do(y) #  shape: (batch_size, nodes, hidden_features)
 
         # For the class part
+        y_class = self.gcbs(y_shared)
         y_class = self.avgpool(y_shared) # --> batch*mode_n*features/2
+        # y_class = self.avgpool(y_class)
         y_class = y_class.view(y_class.shape[0], 3, 19, y_class.shape[2]) 
         y_class = self.conv2d(y_class)  # --> batch,3,25,features/2
         y_class = y_class.view(y_class.shape[0], 57, y_class.shape[3]) 
@@ -467,3 +611,47 @@ class GCN_corr_class_ours(nn.Module):
         att = self.act_fatt(att)  # These are for attention
 
         return out, att, y_class
+
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # Use a standard Kaiming (He) initialization
+            torch.nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+    
+    def _init_weights_torch_1_4(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                # Calculate fan_in
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                # Calculate bound and apply uniform init
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+
+    def _init_weights_torch_1_4_full(self, module):
+        if isinstance(module, torch.nn.Linear):
+            # This replicates the torch 1.4.0 nn.Linear default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                torch.nn.init.uniform_(module.bias, -bound, bound)
+                
+        elif isinstance(module, torch.nn.Conv2d):
+            # This replicates the torch 1.4.0 nn.Conv2d default init
+            torch.nn.init.kaiming_uniform_(module.weight, a=math.sqrt(5))
+            if module.bias is not None:
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(module.weight)
+                if fan_in != 0:
+                    bound = 1 / math.sqrt(fan_in)
+                    torch.nn.init.uniform_(module.bias, -bound, bound)
+                    
+        elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            # Init weight (gamma) to 1s
+            torch.nn.init.ones_(module.weight)
+            # Init bias (beta) with the same uniform distribution as other biases
+            fan_in = module.num_features
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(module.bias, -bound, bound)

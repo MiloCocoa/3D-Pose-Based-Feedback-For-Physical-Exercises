@@ -15,12 +15,15 @@ from models import GCN_class_simple, GCN_class, GCN_corr, GCN_corr_class, GCN_co
 from utils import *
 from evaluation import main_eval
 
+import random
+
 
 def main(opt, model_version):
     print('Model Used: '+ model_version)
     start_time = time.time()    
     torch.manual_seed(0)
     np.random.seed(0)
+    # random.seed(0)
 
     # logging
     date_time = setup_folder(opt)
@@ -57,7 +60,10 @@ def main(opt, model_version):
             }
 
     model = models[model_version]
-    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=opt.lr)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.weight_decay)
+
     curriculum_learning_rate = 1 
 
     if is_cuda:
@@ -133,6 +139,16 @@ def main(opt, model_version):
                             writer_test.add_scalar('loss/corr_test', te_l, epoch)    
                    
                     tepoch.set_postfix(train_loss=tr_l.item())
+
+                    # # NEW, DETAILED LOGGING:
+                    # if model_version[0] != 'S':
+                    #     tepoch.set_postfix(tr_loss=tr_l.item(), te_acc=te_acc, te_loss_class=test_l_class.item())
+                    # elif model_version[11] == 'l':
+                    #     tepoch.set_postfix(tr_loss=tr_l.item(), te_acc=te_acc, te_loss=te_l.item())
+                    # else:
+                    #     tepoch.set_postfix(tr_loss=tr_l.item(), te_loss=te_l.item())
+
+
         except KeyboardInterrupt:
             print('KeyboardInterrupt: stop training')
         
@@ -217,7 +233,7 @@ def main(opt, model_version):
 
 
 if __name__ == "__main__":
-    torch.cuda.set_device(3)
+    torch.cuda.set_device(0) # torch.cuda.set_device(3)
     print('GPU Index: {}'.format(torch.cuda.current_device()))
     
     model_options = ['Separated_Classifier_Simple', 'Separated_Classifier', 'Separated_Corrector', 'Combined_wo_Feedback', 'Ours']

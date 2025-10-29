@@ -9,3 +9,4 @@ Running_logs/*
 # Python Tools for Visual Studio (PTVS)
 *.pyc
 
+.venv
